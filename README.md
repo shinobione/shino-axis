@@ -2,82 +2,83 @@
 
 **One core. Many possibilities.**
 
-> **Status:** Foundation / Discovery. No implementation or technology stack has been approved.
+> **Statut :** Foundation / Discovery. Aucune technologie ni architecture d'exécution n'est encore validée.
 
-SHINO // AXIS is a proposed **modular Windows-first platform** for connecting, operating, and extending the SHINO software ecosystem from one coherent desktop application.
+SHINO // AXIS est un projet de **plateforme modulaire Windows-first** qui réunira progressivement les logiciels, les données et les appareils de l'écosystème SHINO dans une seule expérience cohérente.
 
-AXIS is **not** a rewrite of every SHINO project, not a replacement for their domain expertise, and not a new dependency imposed on standalone applications. It is a common home for reusable capabilities, integrations, events, device connections, and user-facing controls.
+**AXIS n'est pas une réécriture générale.** Il doit fédérer les programmes qui fonctionnent déjà, standardiser les échanges et permettre d'ajouter de nouvelles capacités sans reconstruire un logiciel entier à chaque idée.
 
-## Vision
+## Objectifs
 
-- **One Windows product:** a coherent interface, tray entry, installation, configuration, health overview, and supervised lifecycle.
-- **Extensibility:** new capabilities can be added as modules or connected services without rebuilding the platform.
-- **Reusable contracts:** standard inputs, outputs, state, events, commands, permissions, and versioning.
-- **Device independence:** communicate with existing Android TV and SmallTV clients, and leave room for future hardware.
-- **No VM required for the Windows host:** Windows can host the integration runtime and network gateway natively.
-- **Preserve investments:** integrate functioning projects using adapters before considering targeted migrations.
-- **Local-first and safe:** least privilege, controlled pairing, real data provenance, auditable actions, graceful offline behavior.
+- **Un produit Windows unique** : interface, tray, installation, configuration, superviseur et diagnostics communs.
+- **Des modules extensibles** : fonctions internes et services externes, sans monolithe obligatoire.
+- **Des contrats réutilisables** : source, état, événement, commande, capacité, droits et versions.
+- **Des appareils connectés** : Android TV, SmallTV 240×240 et futurs clients.
+- **Sans VM obligatoire** pour héberger le runtime et la passerelle sous Windows.
+- **Préserver les acquis** : intégration par adaptateurs avant toute migration ciblée.
+- **Local-first** : données authentiques, provenance, résilience, permissions minimales.
 
-## Existing ecosystem — integration candidates
+## Écosystème existant
 
-| Project | Current responsibility | AXIS direction |
+| Projet | Responsabilité | Direction envisagée |
 | --- | --- | --- |
-| [SHINO // CONTROL](https://github.com/shinobione/shinobione-shino-control) | Project radar, GitHub and ChatGPT-derived project state | Integrate existing business logic, not rewrite blindly |
-| SHINO // LINK | PC, GPU, RAM, network and media telemetry | Integrate as a data producer, then evaluate migration |
-| [CODEX MONITOR / PERISCOPE](https://github.com/shinobione/SHINO-CODEX-MONITOR) | Codex quotas and evidence-based local activity | Reuse trusted collectors and their freshness semantics |
-| SHINO // RELAY / HUB | Transport, validation, authentication and distribution | Preserve working contracts, migrate domain by domain |
-| [SHINO Television Android](https://github.com/shinobione/SHINO-Television-Android) | Native Android TV dashboard on Freebox Pop | Remain a device client |
-| [SHINO // TV](https://github.com/shinobione/SHINO-TV) | ESP8266 SmallTV 240×240 display | Remain a constrained device client |
-| SHINO // BRAIN | Local knowledge/memory vault and search | Optional service integration |
-| [SHINO-OS](https://github.com/shinobione/shino-os) | Local-first voice/AI cockpit | Optional provider; never mandatory for telemetry |
+| [SHINO // CONTROL](https://github.com/shinobione/shinobione-shino-control) | Projets, GitHub, ChatGPT, reprise des travaux | Conserver la logique métier existante |
+| SHINO // LINK | Télémétrie PC et musique | Producteur de données / adaptateur |
+| [PERISCOPE / CODEX MONITOR](https://github.com/shinobione/SHINO-CODEX-MONITOR) | Quotas et activité Codex vérifiée | Réutiliser le collecteur fiable |
+| SHINO // RELAY et HUB | Publication, validation, distribution | Maintenir les contrats et migrer progressivement |
+| [SHINO Television Android](https://github.com/shinobione/SHINO-Television-Android) | Dashboard Freebox Pop | Conserver comme client natif Android |
+| [SHINO // TV](https://github.com/shinobione/SHINO-TV) | Firmware SmallTV | Conserver comme client embarqué |
+| SHINO // BRAIN | Notes et index mémoire local | Service optionnel |
+| [SHINO-OS](https://github.com/shinobione/shino-os) | Assistant IA local | Fournisseur de capacités optionnel |
 
-These are **candidates**, not promised migrations. Check current local worktrees, deployed binaries, devices and GitHub branches before making changes. GitHub alone is not proof of the active installation.
+Cette liste décrit **des intégrations potentielles**, pas des migrations approuvées. Les sources GitHub, les worktrees locaux et les appareils physiques peuvent présenter des états différents.
 
-## Proposed architecture — subject to validation
+## Architecture conceptuelle
 
 ```text
-SHINO // AXIS (Windows product)
-  ├─ Desktop shell + system tray
-  ├─ Integration runtime / module lifecycle
-  ├─ Internal contracts: source, state, event, command, capability
-  ├─ Adapters to existing SHINO applications
-  ├─ Device gateway (authentication, compatibility, diagnostics)
-  └─ Local configuration, persistence, health and logs
-             │
-             ├─ Android TV client
-             ├─ SmallTV client (resource-constrained protocol)
-             └─ Future devices / integrations
+SHINO // AXIS — Windows
+ ├── Interface unifiée + tray
+ ├── Runtime / gestion des modules
+ ├── Contrats Sources / States / Events / Commands / Capabilities
+ ├── Adaptateurs vers les projets SHINO existants
+ ├── Passerelle réseau sécurisée et versionnée
+ └── Stockage, configuration, diagnostics
+               │
+               ├── Android TV
+               ├── SmallTV
+               └── Futurs appareils
 ```
 
-**Technology is deliberately undecided.** C#/.NET, WebView2, Tauri, Go, Rust and existing open-source platforms remain options until focused proofs compare integration cost, reliability, resources, licensing and maintainability.
+**La pile technique reste ouverte** : .NET, Rust, Go, Tauri, frameworks natifs ou plateformes open source. On choisira après un laboratoire comparatif fondé sur les intégrations réelles, la sécurité, la maintenance, la licence et les ressources consommées.
 
-## Non-negotiable guardrails
+## Règles de départ
 
-1. **No changes to live installations or hardware without explicit targeted approval.** No firmware flash, OTA, device reconfiguration, VM removal, public publication or destructive cleanup as part of discovery.
-2. **No duplicate authorities:** one authoritative producer per domain at a time, with a tested switchover/rollback.
-3. **Do not degrade existing contracts:** preserve the Android HUB v2 snapshot protocol, authentication, freshness and availability semantics until a compatible replacement is verified.
-4. **Do not expose CONTROL's loopback-only service to LAN.** The future device gateway must have its own security boundary.
-5. **No simulated live facts:** missing/expired/unverified source data stay clearly labeled.
-6. **No mandatory background AI or VM** for ordinary monitoring and device delivery.
-7. **No speculative framework-building:** demonstrate a real module and a real remote client before expanding the plugin system.
-8. **No automatic migration of unrelated projects:** standalone applications can stay standalone.
+1. Pas de changement en production, flash, OTA, suppression de VM, modification réseau ni déploiement sans autorisation spécifique.
+2. Pas de collecteurs concurrents sur une même donnée ; une source autoritaire par domaine.
+3. Préserver les contrats existants du HUB et d'Android TV, notamment authentification et fraîcheur des données.
+4. Ne pas exposer directement au réseau le service loopback de CONTROL.
+5. Aucune donnée LIVE fictive : les informations absentes, périmées ou non vérifiées restent identifiées.
+6. Les fonctions ordinaires ne dépendent pas d'un modèle IA, d'une VM ou d'un abonnement cloud.
+7. Pas de système de plugins disproportionné avant démonstration d'une vraie extension.
+8. Aucune obligation de fusionner tous les logiciels SHINO.
 
 ## Roadmap
 
-1. **Inventory & contracts** — audit actual local sources, dependencies, ports, licenses, schemas, running processes, and device firmware states. Capture baseline CPU/RAM and real data flows.
-2. **Reversible comparison laboratory** — test the smallest viable Windows runtime and module interface against at least one existing platform; connect two independent producers and simulated clients.
-3. **Unified Windows shell** — expose project state, telemetry, media and Codex through one application, initially with adapters to proven implementations.
-4. **Device gateway migration** — preserve Android/SmallTV compatibility, validate data parity and security, and retire RELAY/HUB dependencies only after rollback-tested switchover.
-5. **New module proof** — add a genuinely new module without changes to the core, proving that future ideas become modules rather than isolated applications.
+1. **P0 — Audit** : relever le code et les versions réellement utilisés, les processus, les dépendances, les protocoles et les rôles.
+2. **P1 — Laboratoire comparatif** : tester une base Windows minimale contre une plateforme open source existante, avec les mêmes scénarios.
+3. **P2 — Foundation** : interface unique, contrats minimaux et adaptateurs en lecture seule.
+4. **P3 — Communication** : compatibilité Android TV / SmallTV et passerelle native Windows.
+5. **P4 — Migration** : remplacer les dépendances redondantes, un domaine à la fois, avec retour arrière.
+6. **P5 — Extension** : démontrer l'ajout d'un nouveau module sans modification profonde du noyau.
 
-**First milestone:** an evidence-backed architecture decision and a lab demonstrating integration without touching production.
+**Premier jalon :** prendre une décision d'architecture documentée sur la base d'un audit en lecture seule et de tests reproductibles, sans casser les installations en place.
 
-## Related documentation
+## Documents
 
-- [Architecture hypotheses](docs/ARCHITECTURE.md)
-- [Execution roadmap](docs/ROADMAP.md)
-- [Engineering constraints for agents](AGENTS.md)
+- [Architecture proposée](docs/ARCHITECTURE.md)
+- [Roadmap détaillée](docs/ROADMAP.md)
+- [Instructions de travail pour Codex et agents](AGENTS.md)
 
-## License
+## Licence
 
-**Undecided.** This repository is public, but no license has been granted by default. Choose a project license deliberately after auditing any reused third-party code and components.
+**À décider.** Le dépôt est public mais aucune licence de réutilisation n'a encore été accordée. La licence sera choisie après vérification des composants open source éventuellement repris.
