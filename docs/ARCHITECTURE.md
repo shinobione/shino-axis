@@ -1,4 +1,4 @@
-# AXIS V0.8 — Architecture implémentée
+# AXIS V1.0 — Architecture implémentée
 
 Un processus Windows **.NET 10 / WPF**, avec WinForms uniquement pour le tray. Le runtime ASP.NET Core héberge le récepteur PROJECTS interne. Aucun Node.js, service Windows, VM ou Macro Deck requis. P0/P1 restent historiques ; le choix WPF V0.1 n'est pas une victoire mesurée aux benchmarks.
 
@@ -21,11 +21,13 @@ Modules enregistrés dans `MainWindow`, sans découverte arbitraire de DLL. Bouc
 
 ## PC, réseau, média
 
-PC : différences `GetSystemTimes`, RAM physique `GlobalMemoryStatusEx`, identité CPU par registre. GPU NVIDIA 0 via `nvidia-smi`, timeout 1,5 s ; GPU AMD/Intel et température CPU absents. Premier CPU indisponible, collecte nominale 2 s.
+PC : différences `GetSystemTimes`, RAM physique `GlobalMemoryStatusEx`, identité CPU par registre. GPU NVIDIA 0 via `nvidia-smi`, timeout 1,5 s ; GPU AMD/Intel et température CPU absents. Premier CPU indisponible, collecte nominale 2 s. Compteurs incohérents ou interruption de plus de 10 s : réamorçage, sans pic inventé. Suspend/reprise et réactivation demandent aussi un réamorçage. Une erreur devient une observation indisponible, avec nouvelle tentative au cycle suivant.
 
 Network : compteurs d'interface et horloge monotone, priorité à une interface active avec passerelle IPv4. Premier échantillon, changement d'interface et remise à zéro invalident le débit. Mo décimaux, volumes sur les intervalles observés ; aucun trafic de test externe.
 
-Media : session courante SMTC, première session en repli, notifications et timeline, pochette limitée à 4 Mio. WinRT borné à 2,5 s et désabonnement à l'arrêt. Champs absents effacés, lecture seule, aucune commande de lecture.
+Media : sélection SMTC stable (session précédente en lecture, session Windows en lecture, autre lecture ; puis pause précédente/courante). Sessions arrêtées/fermées exclues. Métadonnées par notification et relecture de secours toutes les 5 s, publication cohérente titre/pochette, pochette limitée à 4 Mio. WinRT borné à 2,5 s et désabonnement à l'arrêt. Sans PlaybackRate, position brute conservée ; extrapolation bornée à une ancre de 30 s, seulement en lecture avec vitesse et durée connues. Timeline limitée à sept jours. Champs absents effacés, lecture seule, aucune commande de lecture.
+
+V0.9 : `PcSnapshot` et `MediaSnapshot` conservent les valeurs numériques nullable, unités explicites (`GiB`, pourcentage, °C, secondes), date de capture et fraîcheur maximale de 6 s. MEDIA garde aussi l'identité de session (stable pendant sa présence dans le gestionnaire) et la date de timeline Windows ; aucune identité inter-redémarrages n'est promise par SMTC. Ces objets sont en mémoire, sans sérialisation/protocole réseau ajouté. Les chaînes françaises restent la projection WPF compatible. Valeurs PC/MEDIA et pochette retirées de l'écran après péremption ; l'art d'une observation suivante n'est jamais attaché au titre précédent.
 
 ## CODEX : quotas et missions
 
@@ -60,10 +62,22 @@ L'extension Chrome installée est **externe au dépôt AXIS**. Sa collecte struc
 
 ## Persistance, distribution et intégrations
 
-Profil `%LOCALAPPDATA%\SHINO\AXIS`, remplaçable par `--data-dir <dossier>` : `settings.json`, `quota-history.json`, `projects.json` avec preuves/curseurs/baseline et sauvegarde. Missions en mémoire. Profil privé hors Git ; fixtures synthétiques dans les tests. Une seule instance à la fois : aucune garde d'instance unique certifiée.
+Profil `%LOCALAPPDATA%\SHINO\AXIS`, remplaçable par `--data-dir <dossier>` : `settings.json`, `quota-history.json`, `projects.json` avec preuves/curseurs/baseline et sauvegarde. Missions en mémoire. Profil privé hors Git ; fixtures synthétiques dans les tests. Une garde mutex/event Windows par utilisateur et profil exclut les doublons et restaure la fenêtre existante. Les profils isolés restent séparés pour les tests.
 
 SDK 10.0.403 épinglé, Core `net10.0`, App `net10.0-windows10.0.19041.0`. Package Windows x64 autonome, dossier complet sans trimming/single-file. [Build et packaging](DEVELOPMENT.md).
 
 V0.7 a importé les données CONTROL réelles ; la recette Chrome ultérieure est rapportée séparément. V0.8 : 71 tests, rendu/animations WPF et package autonome dans le rapport historique ; cadences **synthétiques**, sans nouvelle qualification du compte Codex réel ni veille physique. Aucun résultat ne certifie une parité exhaustive.
 
-LINK, PERISCOPE et CONTROL restent partiellement portés. RELAY/HUB, Android TV, SmallTV et BRAIN sont futurs : aucun transport produit vers les appareils ici, aucun double producteur LINK/RELAY. Contrats HUB v2, TTL, identités et états inconnus restent des contraintes. Chaque bascule service/appareil exige preuves, retour arrière et autorisation propre. Fermer V0.8 puis relancer un package V0.7 préservé est le retour applicatif documenté, sans prétendre réparer un appareil.
+LINK, PERISCOPE et CONTROL restent partiellement portés. RELAY/HUB, Android TV, SmallTV et BRAIN sont futurs : aucun transport produit vers les appareils ici, aucun double producteur LINK/RELAY. Contrats HUB v2, TTL, identités et états inconnus restent des contraintes. Chaque bascule service/appareil exige preuves, retour arrière et autorisation propre. Fermer V1.0 puis relancer le package V0.9 préservé est le retour applicatif documenté, sans prétendre réparer un appareil.
+
+## Consolidation V1.0
+
+`CockpitStatus` distingue cycle AXIS et observation source : la date quota vient du dernier snapshot, pas du heartbeat runtime. Inconnu/périmé et absence de session restent distincts. Accueil : quatre missions maximum, expiration terminale 60 s conservée, alertes réelles, mesures/média/quotas puis sources et liens discrets.
+
+Le runtime garde son verrou séquentiel ; après exception, réessai à 5/10/20/40/60 s (maximum), avec nettoyage avant redémarrage. Désactiver annule les réessais. La fermeture finale pose une barrière terminale avant arrêt, refuse les activations retardées, gèle l’interface et attend la dernière sauvegarde. Une fermeture avant Loaded ne réécrit aucun profil non chargé. Les acquisitions CODEX et PROJECTS ne changent pas.
+
+Settings version 1 additive : fermeture tray optionnelle (false), animations (true), dernière page optionnelle (false), autostart (false). Champs inconnus préservés ; sauvegardes sérialisées et inchangées dédupliquées. La fermeture attend leur file. `StartWithWindows` enregistre une intention ; l’UI lit aussi la présence réelle de l’entrée dédiée et signale un emplacement différent. Aucun registre écrit au démarrage ni dans un profil isolé.
+
+`WindowsIntegration` possède uniquement `HKCU/Software/Microsoft/Windows/CurrentVersion/Run` valeur `SHINO.AXIS`, uniquement sur action UI explicite. Le mutex ne couvre pas les anciens packages V0.9 : les quitter avant bascule. Tray : afficher, masquer, Accueil, Paramètres, quitter. Masquer stoppe les animations et les mises à jour visuelles ; acquisitions maintenues. Les cadrans d’Accueil sont réutilisés entre ticks.
+
+Supervision externe : noms exacts LINK/PERISCOPE/CONTROL/RELAY/HUB, relevé local 30 s, aucune commande de processus, aucun scan de ports ni appel réseau. Exécutables génériques Python/Node non attribués, donc état de service inconnu. Pas de prétention à la santé LIVE. Réseau : interruption de plus de 10 s réamorce le débit, sans volume inventé.

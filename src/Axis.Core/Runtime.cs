@@ -14,10 +14,12 @@ public sealed class ModuleEntry(IAxisModule module) {
  public ModuleState State {get;internal set;}=ModuleState.Stopped;
  public ModuleData? Data {get;internal set;} public string? Error {get;internal set;}
  internal DateTimeOffset? LastPoll;
+ internal bool Enabled; internal DateTimeOffset RetryAt; internal int Failures;
 }
 public sealed class ModuleRuntime {
  public IReadOnlyList<ModuleEntry> Modules {get;}
  readonly List<AxisEvent> events=[]; readonly SemaphoreSlim gate=new(1);
+ int shuttingDown;
  public IReadOnlyList<AxisEvent> Events {get{lock(events)return events.ToArray();}}
  public ModuleRuntime(IEnumerable<IAxisModule> modules) {
   Modules=modules.Select(m=>new ModuleEntry(m)).ToArray();
@@ -27,7 +29,7 @@ public sealed class ModuleRuntime {
   lock(events){events.Add(new(now,id,kind,message)); if(events.Count>200)events.RemoveAt(0);}
  }
  public async Task SetEnabledAsync(string id,bool enabled,DateTimeOffset now) {
-  await gate.WaitAsync();try {await Set(Modules.Single(m=>m.Id==id),enabled,now);} finally{gate.Release();}
+  await gate.WaitAsync();try {if(Volatile.Read(ref shuttingDown)!=0)return;var entry=Modules.Single(m=>m.Id==id);entry.Enabled=enabled;await Set(entry,enabled,now);} finally{gate.Release();}
  }
  async Task Set(ModuleEntry entry,bool enabled,DateTimeOffset now) {
   if(enabled&&entry.State==ModuleState.Active||!enabled&&entry.State==ModuleState.Stopped)return;
@@ -36,31 +38,46 @@ public sealed class ModuleRuntime {
    else await entry.Module.StopAsync();
    entry.State=enabled?ModuleState.Active:ModuleState.Stopped;entry.Data=null;entry.Error=null;entry.LastPoll=null;
    Publish(now,entry.Id,"lifecycle",enabled?"Activé":"Arrêté");
-  }catch(Exception e){entry.State=ModuleState.Error;entry.Data=null;entry.Error=e.Message;}
+  }catch(Exception e){Failed(entry,now,e);}
+ }
+ void Failed(ModuleEntry entry,DateTimeOffset now,Exception error){
+  entry.State=ModuleState.Error;entry.Data=null;entry.Error="Opération indisponible ("+error.GetType().Name+").";
+  entry.Failures=Math.Min(5,entry.Failures+1);entry.RetryAt=now.AddSeconds(Math.Min(60,5*Math.Pow(2,entry.Failures-1)));
  }
  public async Task TickAsync(DateTimeOffset now) {
   await gate.WaitAsync();try {
+   if(Volatile.Read(ref shuttingDown)!=0)return;
+   foreach(var m in Modules.Where(m=>m.Enabled&&m.State==ModuleState.Error&&now>=m.RetryAt))await Set(m,true,now);
    foreach(var m in Modules.Where(m=>m.State==ModuleState.Active)) {
     if(m.LastPoll is {} last&&now>=last&&now-last<m.Module.Interval)continue;
-    try {m.Data=await m.Module.PollAsync(now,(k,v)=>Publish(now,m.Id,k,v));m.LastPoll=now;}
-    catch(Exception e) {m.State=ModuleState.Error;m.Data=null;m.Error=e.Message;Publish(now,m.Id,"error",e.Message);}
+    try {m.Data=await m.Module.PollAsync(now,(k,v)=>Publish(now,m.Id,k,v));m.LastPoll=now;m.Failures=0;}
+    catch(Exception e) {Failed(m,now,e);Publish(now,m.Id,"error",m.Error!);}
    }
   } finally{gate.Release();}
  }
  public async Task StopAllAsync(DateTimeOffset now) {
-  await gate.WaitAsync();try {foreach(var m in Modules)await Set(m,false,now);}finally{gate.Release();}
+  await gate.WaitAsync();try {foreach(var m in Modules){m.Enabled=false;await Set(m,false,now);}}finally{gate.Release();}
  }
+ public Task ShutdownAsync(DateTimeOffset now){Interlocked.Exchange(ref shuttingDown,1);return StopAllAsync(now);}
 }
 public sealed class AppSettings {
  public int Version {get;set;}=1;
  public int CodexRefreshSeconds {get;set;}=30;
  public bool NotifyMissionCompletion {get;set;}=false;
  public bool MinimizeToTray {get;set;}=true;
+ public bool CloseToTray {get;set;}=false;
+ public bool StartWithWindows {get;set;}=false;
+ public bool AnimationsEnabled {get;set;}=true;
+ public bool RestoreLastPage {get;set;}=false;
+ public string LastPage {get;set;}="Accueil";
+ [System.Text.Json.Serialization.JsonExtensionData]
+ public Dictionary<string,JsonElement>? AdditionalSettings {get;set;}
  public Dictionary<string,bool> EnabledModules {get;set;}=new(){{"pc",true},{"network",true},{"media",true},{"codex",true},{"projects",true}};
  public static AppSettings Default()=>new();
 }
 public sealed class SettingsStore(string directory) {
  readonly string path=Path.Combine(directory,"settings.json");bool writable=true;
+ readonly SemaphoreSlim saveGate=new(1);string? saved;
  static readonly JsonSerializerOptions Options=new(){PropertyNamingPolicy=JsonNamingPolicy.CamelCase,WriteIndented=true};
  public async Task<(AppSettings Settings,string? Warning)> LoadAsync() {
   if(!File.Exists(path))return(AppSettings.Default(),null);
@@ -74,8 +91,12 @@ public sealed class SettingsStore(string directory) {
   }
  }
  public async Task SaveAsync(AppSettings settings) {
+  string json=JsonSerializer.Serialize(settings,Options);
+  await saveGate.WaitAsync();try{
   if(!writable)throw new IOException("Configuration conservée : sauvegarde bloquée pour protéger le fichier existant.");
+  if(saved==json)return;
   Directory.CreateDirectory(directory);string temp=path+".tmp";
-  await File.WriteAllTextAsync(temp,JsonSerializer.Serialize(settings,Options));File.Move(temp,path,true);
+  await File.WriteAllTextAsync(temp,json);File.Move(temp,path,true);saved=json;
+  }finally{saveGate.Release();}
  }
 }

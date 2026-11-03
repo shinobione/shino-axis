@@ -103,6 +103,36 @@ await Test("PC values preserve missing sensors and source timestamp",async()=> {
     Check(data.Timestamp==epoch&&!data.IsSimulation);
     Check(data.Values["cpu"].Contains("25")&&data.Values["gpu"]=="Indisponible");
 });
+await Test("PC rejects out of range sensors without replacing RAM units",async()=>{
+ var module=new PcModule(()=>Task.FromResult(new PcReading(120,-1,16,double.NaN,999,"CPU","GPU")));
+ var data=await module.PollAsync(epoch,(_,_)=>{});
+ Check(data.Values["cpu"]=="Indisponible"&&data.Values["ram"]=="Indisponible"&&data.Values["temperature"]=="Indisponible");
+});
+await Test("CPU baseline rejects startup, resets and suspend gaps",()=>{
+ var cpu=new CpuCounter();Check(cpu.Sample(50,200,epoch) is null);
+ Check(cpu.Sample(70,300,epoch.AddSeconds(2))==80);
+ Check(cpu.Sample(90,400,epoch.AddMinutes(2)) is null);
+ Check(cpu.Sample(80,500,epoch.AddMinutes(2).AddSeconds(2)) is null);
+ cpu.Reset();Check(cpu.Sample(90,600,epoch.AddMinutes(2).AddSeconds(4)) is null);
+ return Task.CompletedTask;
+});
+await Test("Media session selection is stable and prioritizes playing",()=>{
+ var paused=new MediaCandidate("browser",false);var music=new MediaCandidate("music",true);var other=new MediaCandidate("other",true);
+ Check(MediaRules.Select([paused,music],"browser","browser")=="music");
+ Check(MediaRules.Select([other,music],"music","other")=="music");
+ Check(MediaRules.Select([paused,music with{Playing=false}],"music","browser")=="music");
+ Check(MediaRules.Select([],"music","browser") is null);
+ return Task.CompletedTask;
+});
+await Test("Media timeline handles pause, rate missing, stale and invalid bounds",()=>{
+ Check(MediaRules.Position(10,100,true,null,epoch,epoch.AddSeconds(10))==10);
+ Check(MediaRules.Position(10,100,true,1,epoch,epoch.AddSeconds(10))==20);
+ Check(MediaRules.Position(10,100,false,1,epoch,epoch.AddSeconds(10))==10);
+ Check(MediaRules.Position(10,100,true,1,epoch,epoch.AddMinutes(2))==10);
+ Check(MediaRules.Position(10,null,true,1,epoch,epoch.AddSeconds(2))==10);
+ Check(MediaRules.Position(double.NaN,100,true,1,epoch,epoch) is null);
+ return Task.CompletedTask;
+});
 await Test("GPU parser rejects invalid values independently",()=> {
     var gpu=WindowsPcSource.ParseGpu("N/A, 62");
     Check(gpu.Usage is null&&gpu.Temperature==62);
@@ -151,6 +181,36 @@ await Test("Media missing duration is never fabricated",async()=>{
  var source=new FakeMedia{Reading=new("Disponible","Paused",Playing:false)};var module=new MediaModule(source);await module.StartAsync();
  var data=await module.PollAsync(epoch,(_,_)=>{});Check(data.Values["playback"]=="Pause"&&data.Values["duration"]=="");
  await module.StopAsync();
+});
+await Test("PC error stays active and recovers on next observation",async()=>{
+ bool fail=true;var module=new PcModule(()=>fail?Task.FromException<PcReading>(new IOException("test")):Task.FromResult(new PcReading(20,8,16,null,null,"CPU","GPU")));
+ var runtime=new ModuleRuntime([module]);await runtime.SetEnabledAsync("pc",true,epoch);await runtime.TickAsync(epoch);
+ Check(runtime.Modules.Single().State==ModuleState.Active&&module.Snapshot!.Reading.Cpu is null);
+ fail=false;await runtime.TickAsync(epoch.AddSeconds(2));Check(module.Snapshot!.Reading.RamUsed==8&&module.Snapshot.IsFresh(epoch.AddSeconds(3))&&!module.Snapshot.IsFresh(epoch.AddSeconds(9)));
+ await runtime.StopAllAsync(epoch);Check(module.Snapshot is null);
+});
+await Test("Media replacement and failure cannot retain old art or metadata",async()=>{
+ var source=new FakeMedia();var module=new MediaModule(source);await module.StartAsync();await module.PollAsync(epoch,(_,_)=>{});
+ source.Reading=new("Disponible","Next","New artist",App:"Player",Playing:false,Position:12,SessionId:"stable");
+ var next=await module.PollAsync(epoch.AddSeconds(1),(_,_)=>{});
+ Check(next.Values["title"]=="Next"&&next.Values["album"]=="Indisponible"&&next.Values["position"]=="12"&&module.Artwork is null);
+ source.Fail=true;next=await module.PollAsync(epoch.AddSeconds(2),(_,_)=>{});
+ Check(next.Values["status"]=="Indisponible"&&next.Values["position"]==""&&module.Artwork is null);
+ source.Fail=false;await module.PollAsync(epoch.AddSeconds(3),(_,_)=>{});Check(module.Snapshot!.Reading.SessionId=="stable");
+ await module.StopAsync();Check(module.Snapshot is null);
+});
+await Test("Slow PC acquisition stays serialized without overlapping ticks",async()=>{
+ var entered=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);var release=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);int active=0,max=0,calls=0;
+ var pc=new PcModule(async()=>{calls++;max=Math.Max(max,++active);entered.TrySetResult();await release.Task;active--;return new(20,8,16,null,null,"CPU","GPU");});
+ var runtime=new ModuleRuntime([pc]);await runtime.SetEnabledAsync("pc",true,epoch);
+ var first=runtime.TickAsync(epoch);await entered.Task;var second=runtime.TickAsync(epoch.AddSeconds(2));
+ Check(calls==1);release.SetResult();await Task.WhenAll(first,second);Check(calls==2&&max==1);
+});
+await Test("Media typed observations remove invalid timeline and unavailable residuals",async()=>{
+ var source=new FakeMedia{Reading=new("Disponible","Test",Position:double.MaxValue,Duration:double.NaN)};var media=new MediaModule(source);await media.StartAsync();
+ await media.PollAsync(epoch,(_,_)=>{});Check(media.Snapshot!.Reading.Position is null&&media.Snapshot.Reading.Duration is null);
+ source.Reading=new("Indisponible","OLD",Artwork:[1]);await media.PollAsync(epoch.AddSeconds(1),(_,_)=>{});
+ Check(!media.Snapshot!.IsAvailable&&media.Snapshot.Reading.Title is null&&media.Snapshot.Reading.Artwork is null);await media.StopAsync();
 });
 await Test("Codex uses duration and consumed percentage; deduplicates map",()=>{
  var json="""{"rateLimits":{"limitId":"codex","primary":{"windowDurationMins":10080,"usedPercent":30}},"rateLimitsByLimitId":{"codex":{"primary":{"windowDurationMins":10080,"usedPercent":30},"secondary":{"windowDurationMins":300,"usedPercent":75,"resetsAt":1800000000}}}}""";
@@ -584,6 +644,59 @@ await Test("Live inaccessible mission source is distinct from ambiguous silence"
   Check(observer.Current.Summary.StartsWith("INDISPONIBLE"));Check(observer.Current.Recent.Count==0);
  }finally{await observer.StopAsync();}
 });
+await Test("V1 settings preserve legacy preferences and unknown fields without repeated writes",async()=>{
+ var dir=Path.Combine(Path.GetTempPath(),"axis-v10-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(dir);
+ var path=Path.Combine(dir,"settings.json");await File.WriteAllTextAsync(path,"""{"version":1,"minimizeToTray":false,"enabledModules":{"pc":false},"futureOption":{"keep":true}}""");
+ var store=new SettingsStore(dir);var (s,warning)=await store.LoadAsync();Check(warning is null&&!s.MinimizeToTray&&!s.EnabledModules["pc"]);
+ var type=typeof(AppSettings);Check(type.GetProperty("AnimationsEnabled") is not null,"Missing animation preference");
+ Check((bool)type.GetProperty("AnimationsEnabled")!.GetValue(s)!);Check(!(bool)type.GetProperty("StartWithWindows")!.GetValue(s)!);
+ await store.SaveAsync(s);var before=File.GetLastWriteTimeUtc(path);await Task.Delay(30);await store.SaveAsync(s);
+ Check(File.GetLastWriteTimeUtc(path)==before,"Unchanged settings rewritten");Check((await File.ReadAllTextAsync(path)).Contains("futureOption"),"Unknown preference lost");
+ await Task.WhenAll(Enumerable.Range(0,12).Select(_=>store.SaveAsync(s)));Check((await store.LoadAsync()).Warning is null);
+});
+await Test("Runtime automatically recovers errors with bounded retries and respects disable",async()=>{
+ var bad=new FakeModule(){Fail=true};var r=new ModuleRuntime([bad]);await r.SetEnabledAsync("fake",true,epoch);await r.TickAsync(epoch);
+ bad.Fail=false;await r.TickAsync(epoch.AddSeconds(1));Check(r.Modules[0].State==ModuleState.Error,"Retry should be delayed");
+ await r.TickAsync(epoch.AddSeconds(61));Check(r.Modules[0].State==ModuleState.Active&&r.Modules[0].Data is not null,"No automatic recovery");
+ bad.Fail=true;await r.TickAsync(epoch.AddSeconds(63));await r.SetEnabledAsync("fake",false,epoch.AddSeconds(64));bad.Fail=false;
+ await r.TickAsync(epoch.AddMinutes(5));Check(r.Modules[0].State==ModuleState.Stopped&&bad.Starts==2,"Disabled module restarted");
+});
+await Test("Cockpit separates poll heartbeat from quota observation and stale source",async()=>{
+ var dir=Path.Combine(Path.GetTempPath(),"axis-v10-"+Guid.NewGuid().ToString("N"));var codex=new CodexModule(new FakeCodex(epoch),new QuotaHistory(dir));var runtime=new ModuleRuntime([codex]);
+ codex.Missions.Read=now=>new LiveTaskReport{CheckedUtc=now};await runtime.SetEnabledAsync("codex",true,epoch);
+ await runtime.TickAsync(epoch);Check(CockpitStatus.Read(runtime.Modules[0],epoch).Observed is null,"Heartbeat became quota observation");
+ await runtime.StopAllAsync(epoch);
+ var pc=new ModuleRuntime([new PcModule(()=>Task.FromResult(new PcReading(null,null,null,null,null,"","")))]);await pc.SetEnabledAsync("pc",true,epoch);await pc.TickAsync(epoch);
+ Check(CockpitStatus.Read(pc.Modules[0],epoch).State=="Indisponible");Check(CockpitStatus.Read(pc.Modules[0],epoch.AddSeconds(7)).State=="Dégradé");
+ Check(CockpitStatus.Read(pc.Modules[0],epoch.AddSeconds(-1)).State=="Dégradé");
+});
+await Test("External process presence never implies service health",()=>{
+ var rows=ExternalComponents.Observe(name=>name=="PERISCOPE",epoch);Check(rows.Single(x=>x.Name=="PERISCOPE").Detected==true);Check(rows.All(x=>x.State.Contains("inconnu")));
+ Check(ExternalComponents.Observe(_=>throw new UnauthorizedAccessException(),epoch).All(x=>x.Detected is null));return Task.CompletedTask;
+});
+await Test("Autostart simulation uses quoted actual executable and changes only dedicated entry",()=>{
+ var entry=new FakeStartup();var start=new StartupRegistration(entry,Path.Combine(Path.GetTempPath(),"axis folder","Axis.App.exe"));
+ Check(!start.Enabled);start.Apply(false);Check(entry.Writes==0&&entry.Deletes==0);start.Apply(true);Check(start.Enabled&&entry.Value!.StartsWith("\"")&&entry.Value.EndsWith("Axis.App.exe\""));start.Apply(true);Check(entry.Writes==1);start.Apply(false);Check(!start.Enabled&&entry.Deletes==1);return Task.CompletedTask;
+});
+await Test("Network resume gap does not become a current transfer rate",async()=>{
+ var current=new NetworkReading("a","a","a","a",true,0,0,1);var module=new NetworkModule(()=>current);await module.StartAsync();await module.PollAsync(epoch,(_,_)=>{});
+ current=current with{Received=90_000_000,Seconds=901};var resumed=await module.PollAsync(epoch.AddSeconds(900),(_,_)=>{});
+ Check(resumed.Values["download"]=="Indisponible"&&resumed.Values["downloaded"]=="0,00 Mo","Sleep gap counted as recent traffic");
+ current=current with{Received=91_000_000,Seconds=902};Check((await module.PollAsync(epoch.AddSeconds(901),(_,_)=>{})).Values["download"]=="1,00 Mo/s");
+});
+await Test("Final shutdown rejects delayed module enable and poll",async()=>{
+ var module=new FakeModule();var runtime=new ModuleRuntime([module]);await runtime.SetEnabledAsync("fake",true,epoch);
+ var shutdown=typeof(ModuleRuntime).GetMethod("ShutdownAsync");Check(shutdown is not null,"No terminal shutdown barrier");
+ var release=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+ var delayed=Task.Run(async()=>{await release.Task;await runtime.SetEnabledAsync("fake",true,epoch.AddSeconds(1));});
+ await (Task)shutdown!.Invoke(runtime,[epoch])!;release.SetResult();await delayed;await runtime.TickAsync(epoch.AddMinutes(1));
+ Check(module.Starts==1&&module.Stops==1&&module.Polls==0&&runtime.Modules[0].State==ModuleState.Stopped,"Late enable escaped shutdown");
+});
+await Test("Moved executable keeps obsolete autostart visible and removable",()=>{
+ var entry=new FakeStartup{Value="\"C:\\old\\Axis.App.exe\""};var startup=new StartupRegistration(entry,Path.Combine(Path.GetTempPath(),"new","Axis.App.exe"));
+ Check(!startup.Enabled);var exists=typeof(StartupRegistration).GetProperty("Registered");Check(exists is not null&&(bool)exists.GetValue(startup)!,"Obsolete registration hidden");
+ startup.Apply(false);Check(entry.Value is null);return Task.CompletedTask;
+});
 Console.WriteLine($"{passed} passed; {failures.Count} failed");
 return failures.Count==0?0:1;
 
@@ -601,10 +714,11 @@ sealed class FakeModule(string id="fake") : IAxisModule
 
 
 sealed class FakeMedia : IMediaSource {
+ public bool Fail;
  public MediaReading Reading=new("Disponible","Song","Artist","Album","Player",true,10,100,[1,2]);
  public bool Stopped;
  public Task StartAsync(CancellationToken cancellation)=>Task.CompletedTask;
- public Task<MediaReading> ReadAsync(CancellationToken cancellation)=>Task.FromResult(Reading);
+ public Task<MediaReading> ReadAsync(CancellationToken cancellation)=>Fail?Task.FromException<MediaReading>(new IOException("test")):Task.FromResult(Reading);
  public Task StopAsync(){Stopped=true;return Task.CompletedTask;}
 }
 
@@ -656,3 +770,5 @@ sealed class ControlledQuota(DateTimeOffset now) : ICodexQuotaSource {
  public int Calls,MaxConcurrent,active;
  public async Task<QuotaSnapshot> ReadAsync(CancellationToken cancellation){Interlocked.Increment(ref Calls);MaxConcurrent=Math.Max(MaxConcurrent,Interlocked.Increment(ref active));Entered.TrySetResult();try{await Release.Task.WaitAsync(cancellation);return new(now,[new("codex",300,25,null)],null);}finally{Interlocked.Decrement(ref active);}}
 }
+
+sealed class FakeStartup : IStartupEntry {public string? Value;public int Writes,Deletes;public string? Read()=>Value;public void Write(string command){Writes++;Value=command;}public void Delete(){Deletes++;Value=null;}}

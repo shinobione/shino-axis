@@ -35,15 +35,19 @@ public sealed class QuotaDial : FrameworkElement {
  }
 }
 public sealed class MissionGlyph : FrameworkElement {
+ public static readonly DependencyProperty AnimationsProperty=DependencyProperty.RegisterAttached("Animations",typeof(bool),typeof(MissionGlyph),new FrameworkPropertyMetadata(true,FrameworkPropertyMetadataOptions.Inherits,OnAnimationsChanged));
+ public static void SetAnimations(DependencyObject target,bool enabled)=>target.SetValue(AnimationsProperty,enabled);
+ public static bool GetAnimations(DependencyObject target)=>(bool)target.GetValue(AnimationsProperty);
+ static void OnAnimationsChanged(DependencyObject target,DependencyPropertyChangedEventArgs args){if(target is MissionGlyph glyph)glyph.Animate();}
  readonly RotateTransform rotation=new();string state="NON VÉRIFIÉ";
  public MissionGlyph(){Width=30;Height=30;RenderTransform=rotation;RenderTransformOrigin=new(.5,.5);IsVisibleChanged+=(_,_)=>Animate();Unloaded+=(_,_)=>rotation.BeginAnimation(RotateTransform.AngleProperty,null);}
  public void SetState(string value){
   if(value==state)return;string previous=state;state=value;Animate();InvalidateVisual();
-  if(previous=="EN COURS"&&value=="TERMINÉ")BeginAnimation(OpacityProperty,new DoubleAnimation(.45,1,TimeSpan.FromMilliseconds(450)));
+  if(previous=="EN COURS"&&value=="TERMINÉ"&&GetAnimations(this))BeginAnimation(OpacityProperty,new DoubleAnimation(.45,1,TimeSpan.FromMilliseconds(450)));
  }
  void Animate(){
   rotation.BeginAnimation(RotateTransform.AngleProperty,null);rotation.Angle=0;
-  if(state=="EN COURS"&&IsVisible)rotation.BeginAnimation(RotateTransform.AngleProperty,new DoubleAnimation(0,360,TimeSpan.FromSeconds(2.2)){RepeatBehavior=RepeatBehavior.Forever});
+  if(state=="EN COURS"&&IsVisible&&GetAnimations(this))rotation.BeginAnimation(RotateTransform.AngleProperty,new DoubleAnimation(0,360,TimeSpan.FromSeconds(2.2)){RepeatBehavior=RepeatBehavior.Forever});
  }
  protected override void OnRender(DrawingContext dc){
   var color=QuotaDial.Ink(state switch{"EN COURS"=>"#A477FF","TERMINÉ"=>"#51D7AF","ÉCHEC"=>"#EE4B55","INTERROMPU"=>"#F28C38",_=>"#8BA0B1"});

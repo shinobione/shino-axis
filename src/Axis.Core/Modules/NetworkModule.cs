@@ -15,7 +15,7 @@ public sealed class NetworkModule(Func<NetworkReading?> read) : IAxisModule {
   var current=read();double? down=null,up=null;
   if(current is {Connected:true}) {
    if(lastInterface!=current.Id){publish("network.interface","Interface active modifiée");lastInterface=current.Id;}
-   if(previous is {Connected:true} p&&p.Id==current.Id&&current.Seconds>p.Seconds&&current.Received>=p.Received&&current.Sent>=p.Sent) {
+   if(previous is {Connected:true} p&&p.Id==current.Id&&current.Seconds>p.Seconds&&current.Seconds-p.Seconds<=10&&current.Received>=p.Received&&current.Sent>=p.Sent) {
     double received=current.Received-p.Received,sent=current.Sent-p.Sent,elapsed=current.Seconds-p.Seconds;
     downloaded+=received;uploaded+=sent;down=received/elapsed/1_000_000;up=sent/elapsed/1_000_000;
    }
