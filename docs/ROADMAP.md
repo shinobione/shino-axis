@@ -1,60 +1,26 @@
-# SHINO // AXIS — Roadmap de fondation
+# AXIS — Roadmap produit
 
-**Statut :** discovery / design. **Pas de développement en production autorisé par cette roadmap.**
+État documentaire au 03/11/2026. AXIS V0.8 est une application Windows .NET 10/WPF livrée localement. Les numéros futurs sont des jalons proposés, sans engagement de date ni de livraison.
 
-## P0 — Audit des vrais systèmes en fonctionnement
+| Jalon | Statut | Périmètre |
+| --- | --- | --- |
+| V0.7 — FOUNDATION + PROJECTS | **LIVRÉ** | Socle Windows, cinq modules, import CONTROL réel et PROJECTS natif. Collecte structurée Chrome qualifiée ensuite sur un cas réel ; parité exhaustive non certifiée. |
+| V0.8 — CODEX Live | **LIVRÉ / À VALIDER en réel** | Quotas 30 s configurables, missions 5 s nominales, états/durées/animations et historique dédupliqué. Cadences synthétiques documentées. |
+| V0.9 — PROJECTS / CONTROL Parity | **PLANIFIÉ — prochaine étape envisagée** | Parité utile CONTROL, résumés et reprises de contexte, fiabilisation des opérations GitHub, parcours de gestion, validation avant remplacement de l'interface CONTROL. |
+| V1.0 — Windows Cockpit | **PLANIFIÉ** | Parité utile LINK, consolidation des réglages/modules, expérience Windows cohérente, supervision des composants nécessaires ; réduction des processus redondants après validation. |
+| V1.1 — Device Integration | **PLANIFIÉ** | Freebox Pop/Android TV, SmallTV 240×240, contrats existants, commandes d'affichage et sélection des vues. Firmware SmallTV stable préservé ; migration graduelle RELAY/HUB seulement sur preuves de parité. |
+| V1.2+ — Extensibility | **EXPLORATOIRE** | SHINO // BRAIN, nouveaux modules, automatisations locales et intégrations futures. |
 
-**Entrées** : dépôts GitHub, worktrees locaux, documentation, exécutables installés, contrats et services. Ne pas confondre ces sources.
+## À valider
 
-À relever : versions et SHA, ports/processus, autostart, producteurs, état de LINK/RELAY/HUB, schémas snapshot, permissions, stockage, secrets (présence uniquement), baselines CPU/RAM, séquences veille/redémarrage, fonctionnement Android TV et SmallTV.
+- CODEX V0.8 : deux relevés sur compte réel et un tour terminal observé, puis reprise après veille physique. Ces vérifications sont distinctes des mesures synthétiques et chemins de cycle de vie déjà testés.
+- PROJECTS : stabilité prolongée de la collecte structurée, autres formats/onglets et heuristiques ; parité utile à définir et qualifier avant retrait de CONTROL.
+- Intégrations : contrats, fraîcheur/TTL, états inconnus, absence de doubles producteurs, retour arrière et accord distinct avant bascule de service ou appareil.
 
-**Sortie** : matrice `conserver / adapter / migrer / retirer`, carte des flux, risques et correspondance `GitHub ↔ local ↔ appareil`.
+**Aucun chantier actif de rattrapage historique ChatGPT.** L'utilisateur préfère rouvrir les conversations nécessaires. Les endpoints de compatibilité bornés existants restent documentés, sans lancer ni planifier de rattrapage global.
 
-**Gate** : pas de migration envisagée tant que les responsabilités et les sources autoritaires ne sont pas connues.
+## Historique préservé
 
-## P1 — Choix du socle par preuves
+[CHANGELOG](../CHANGELOG.md) et rapports V0.1–V0.8 décrivent la progression. [P0](audit/P0-RECOMMENDATION.md), [P1](p1/P1-COMPARISON.md), [ADR historique](adr/ADR-001-FOUNDATION.md) et `lab/p1` conservent leurs résultats et limites. Leur HOLD initial ne décrit plus l'architecture actuelle ; .NET/WPF a été adopté pour V0.1 sans prétendre avoir gagné un benchmark.
 
-Construire deux expériences jetables en environnement isolé :
-
-- une base Windows minimale utilisant des briques .NET (ou autre candidat justifié) ;
-- une plateforme open source existante (Macro Deck, ou meilleur candidat après audit).
-
-**Même scénario** : deux producteurs de natures différentes, un état versionné, un événement, une commande autorisée, deux clients simulés, une reconnexion, un arrêt d'un module et un nouveau module ajouté sans patcher le domaine d'un autre.
-
-Mesurer : temps d'intégration, facilité de debug, CPU/RAM au repos, dépendances, licence, installation Windows, tests et reprise. Ne retenir aucun résultat sans protocole reproductible.
-
-**Gate** : ADR explicite choisissant le socle, avec alternatives rejetées et preuves.
-
-## P2 — Foundation minimale
-
-Livrer un hôte Windows unifié (interface, tray, configuration, diagnostics), les premiers contrats, un système de modules **simple et testable**, et des adaptateurs en lecture seule pour au moins deux sources existantes. Pas de duplication de données ni de modification de leurs dépôts.
-
-**Gate** : ajout/suppression d'un module sans casser les autres ; mécanismes de retour arrière et journalisation lisible.
-
-## P3 — Communication appareils
-
-Adapter la passerelle Windows aux contrats déjà consommés par Android TV et SmallTV, en commençant par des tests sur fixtures/simulateurs. Vérifier les rôles d'authentification, la fraîcheur des données et les reconnexions.
-
-**Gate** : parité réelle du flux Android TV et conservation du firmware SmallTV stable, après validation physique autorisée.
-
-## P4 — Bascule progressive
-
-Un domaine à la fois : mesurer la parité, basculer l'autorité de publication, conserver un rollback, puis seulement désactiver les processus redondants. Ne pas supprimer automatiquement HUB/RELAY/VM.
-
-**Gate** : absence de double publication et d'impact sur les autres domaines.
-
-## P5 — Preuve d'extensibilité
-
-Créer un module **entièrement nouveau** (exemple : profil Windows lié à l'application au premier plan) sans modification de la logique métier du noyau.
-
-**Gate** : modèle de module documenté, tests, installation et désinstallation propres.
-
-## Principes de livraison
-
-- Commits et PR de petite portée, sans diffusion de données privées.
-- Tests synthétiques ≠ preuve sur matériel réel.
-- Aucun changement dangereux, publication de code privé ou activation réseau sans accord explicite.
-- Documenter le **dernier état vérifié**, les écarts, et **une prochaine action prioritaire**.
-- Préférer les briques existantes et le quota Codex minimal ; éviter les réaudits et refontes graphiques sans preuve.
-
-**Première action :** réaliser P0 sous forme d'audit lecture seule.
+Prochaine action concrète : recette utilisateur CODEX V0.8 sur compte réel. Réussite = dates de deux relevés progressant, tour terminal explicable, arrêt de l'anneau et absence de notification dupliquée. La veille physique reste une vérification séparée.

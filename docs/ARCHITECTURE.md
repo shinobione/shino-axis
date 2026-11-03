@@ -1,81 +1,69 @@
-# AXIS — Architecture cible (hypothèse, non validée)
+# AXIS V0.8 — Architecture implémentée
 
-**Statut :** proposition de travail. **Aucun langage, framework ou modèle de plugin n'est acté.**
+Un processus Windows **.NET 10 / WPF**, avec WinForms uniquement pour le tray. Le runtime ASP.NET Core héberge le récepteur PROJECTS interne. Aucun Node.js, service Windows, VM ou Macro Deck requis. P0/P1 restent historiques ; le choix WPF V0.1 n'est pas une victoire mesurée aux benchmarks.
 
-## Problème à résoudre
+## Frontières et sources
 
-Des produits SHINO fiables existent déjà, mais leurs entrées/sorties, leurs démons Windows, leurs modes de lancement et leurs clients distants ont grandi séparément. AXIS veut **unifier l'expérience et les services réutilisables**, sans transformer tous les programmes en un monolithe ni tout réécrire.
+| Source | Responsabilité |
+| --- | --- |
+| `src/Axis.Core/Runtime.cs` | `IAxisModule`, registre compilé, activation/arrêt sérialisés, snapshots datés, événements bornés à 200, préférences. |
+| `src/Axis.Core/Modules` | PC, Network, Media, CODEX, PROJECTS et leur cycle de vie commun. |
+| `src/Axis.Core/Missions` | Lecture Codex locale bornée, projection des tours, notifications. |
+| `src/Axis.Core/Projects` | Stockage compatible CONTROL, import/fusion, attribution, statuts/reprises, deltas, compatibilité catchup, synchronisation GitHub. |
+| `src/Axis.Core/Presentation` | Règles de présentation indépendantes de WPF. |
+| `src/Axis.App` | Composition des cinq modules, cockpit, pages, paramètres, tray, animations. |
+| `src/Axis.App/Collectors/WindowsMediaSource.cs` | Adaptateur SMTC de `IMediaSource`. |
+| `tests/Axis.Core.Tests` | Suite exécutable synthétique et HTTP loopback. |
+| `tests/Axis.App.VisualChecks` | Recette graphique WPF synthétique explicite. |
+| `lab/p1` | Laboratoire historique, sans dépendance produit vers lui. |
 
-## Frontières proposées
+Modules enregistrés dans `MainWindow`, sans découverte arbitraire de DLL. Boucle séquentielle hors thread UI, sans empilement de ticks ; des opérations lentes peuvent retarder les cadences nominales. Tick UI d'une seconde pour durées/péremption. Désactiver un module arrête ses acquisitions et invalide son snapshot.
 
-1. **Shell Windows** : fenêtre principale, navigation, paramètres, tray, installation et diagnostics. Il ne lit pas directement les capteurs.
-2. **Runtime d'intégration** : inventaire des modules, gestion de leur cycle de vie, santé, sources de données, état courant, bus d'événements, commandes, permissions et versioning.
-3. **Adaptateurs** : utilisent les APIs, exports ou processus existants de CONTROL, LINK/RELAY, PERISCOPE, BRAIN et autres. Ils ne détiennent pas simultanément la même autorité de publication.
-4. **Passerelle appareils** : point d'accès réseau unique avec appairage, auth, contrats versionnés, compatibilité et observabilité. Ne pas exposer directement les services loopback.
-5. **Clients** : Android TV, firmware SmallTV et futurs appareils. Chaque client rend localement les données qu'il sait prendre en charge.
+## PC, réseau, média
 
-Un seul produit installé ne veut pas dire un seul processus. Le runtime doit pouvoir superviser des processus isolés quand c'est raisonnable.
+PC : différences `GetSystemTimes`, RAM physique `GlobalMemoryStatusEx`, identité CPU par registre. GPU NVIDIA 0 via `nvidia-smi`, timeout 1,5 s ; GPU AMD/Intel et température CPU absents. Premier CPU indisponible, collecte nominale 2 s.
 
-## Enveloppes conceptuelles minimales
+Network : compteurs d'interface et horloge monotone, priorité à une interface active avec passerelle IPv4. Premier échantillon, changement d'interface et remise à zéro invalident le débit. Mo décimaux, volumes sur les intervalles observés ; aucun trafic de test externe.
 
-Les formats ci-dessous sont des **concepts à spécifier**, pas des API livrées :
+Media : session courante SMTC, première session en repli, notifications et timeline, pochette limitée à 4 Mio. WinRT borné à 2,5 s et désabonnement à l'arrêt. Champs absents effacés, lecture seule, aucune commande de lecture.
 
-- **Source** : ID, propriétaire, version de schéma, unité, horodatage de mesure, origine, valeur et qualité.
-- **State** : dernier état valide, statut d'ancienneté, TTL, indisponibilité et dérivation contrôlée.
-- **Event** : nom, ID, temps d'occurrence, ID de corrélation, version et données limitées.
-- **Command** : action explicite, cible, émetteur, autorisation, ID idempotent, accusé de réception et résultat.
-- **Capability** : aptitudes déclarées du client, formats pris en charge, contraintes réseau/mémoire/affichage.
+## CODEX : quotas et missions
 
-Les propriétés critiques (fraîcheur, provenance, absence, statut UNVERIFIED) ne peuvent pas être effacées par une transformation de données.
+`CodexQuotaSource` détecte le CLI par `SHINO_CODEX_EXE`, PATH ou emplacements usuels. Processus `app-server` stdio éphémère : `initialize`, `initialized`, `account/rateLimits/read`. Une requête au plus, timeout 20 s, annulation et nettoyage de l'arbre de processus. Aucun accès direct aux tokens ni corps RPC journalisé ; aucune conversation créée/reprise.
 
-## Contrats existants : préserver avant d'étendre
+`QuotaParser` identifie les fenêtres par durée ; restant = 100 − utilisé. Catégories modernes prioritaires sur leur représentation historique. Crédits/reset seulement si fournis. V0.8 : 30 s par défaut, 30/60/120/300 s persistants, demande manuelle et reprise. Backoff par défaut 60/120/240/300 s ; requête antérieure annulée et réponse écartée à la reprise. Cache disque non déclaré frais avant réussite ; fraîcheur maximale `max(90 s, 2 × intervalle)`.
 
-L'application Android TV possède un contrat snapshot HUB v2, avec TLS, authentification lecture seule, référence de pochette, domaines PC/média/Codex et TTL spécifiques. La roadmap locale validée au 01/11/2026 signale Android 2.1.2, RELAY 0.5.7 et HUB 0.5.1 ; GitHub main peut être plus ancien.
+`quota-history.json` garde 1000 points maximum. Valeurs/reset/crédits identiques : continuité toutes les cinq minutes, sans écriture à chaque interrogation. Erreurs répétées dédupliquées, ruptures conservées ; pas d'interpolation trompeuse des lacunes ni déduction de reset.
 
-- Ne pas inventer des quotas, des missions Codex, des latences ou des mesures.
-- Ne jamais lancer un second producteur concurrent pendant une migration.
-- Respecter les permissions propres aux lecteurs et aux producteurs.
-- Construire des fixtures compatibles pour tests de régression, puis tester sur appareils réels après autorisation.
+`MissionObserver` pilote une seule lecture locale en vol, nominalement toutes les 5 s, indépendante du RPC. Source JSONL non documentée et sensible aux versions : métadonnées de cycle de vie seulement, sans persistance de prompts, sorties ou conversations. Rapport périmé après 25 s ; activité expirant après 90 s ou incohérence de date. Workspace/modèle/effort affichés si observés. Sous-agents séparés des racines ; silence/fin de tour ne prouvent ni fin de conversation Desktop ni fin de projet.
 
-## Windows et communication
+WPF conserve ses cartes et les jauges OBSIDIAN CIRCLE ; anneau actif seulement sur preuve récente, arrêté aux états terminaux/incertains ou au masquage. Six événements récents affichés, vingt observations dans la projection globale. Notifications de fins confirmées opt-in, sans rejeu au démarrage/reprise.
 
-- Application locale native, **sans VM obligatoire** pour les fonctions hébergées par Windows.
-- API locale interne distincte de la passerelle LAN; aucune ouverture de ports par défaut sans consentement et configuration sécurisée.
-- Appairage explicite, jetons limités par rôle, TLS si requis, révocation, limitation des requêtes et journalisation expurgée.
-- Reconnexion, cache, veille/reprise, détection d'instance unique et redémarrage non destructif.
-- Pas de dépendance à une API IA, à un modèle local chargé en mémoire ou au cloud pour les fonctions ordinaires.
+## PROJECTS et extension Chrome
 
-## Contraintes matérielles
+`ProjectStore` conserve `projects.json`, compatible avec les identités/champs CONTROL. Mutations sérialisées sur un clone, écriture temporaire/remplacement avec `.bak` avant publication en mémoire. Stockage illisible protégé. Import prévisualisé puis fusion à trois voies avec baseline privée, conservation des modifications/affectations/suppressions locales et conflits visibles. Aucun HQ ou transcription complète importé par ce parcours.
 
-- Android TV : application Kotlin existante ; navigation télécommande et affichage réellement vérifié sur Freebox.
-- SmallTV : microcontrôleur à mémoire limitée, LCD 240×240, firmware stable à confirmer sur l'appareil. Ne pas imposer de navigateur/WebSocket/JSON volumineux sans test des budgets.
-- PC éteint : aucune télémétrie Windows live. Les fonctions autonomes (ex. météo) exigent une source indépendante : conserver le service existant jusqu'à décision explicite.
+`ControlEngine`, `ProjectResolver`, `ChatDelta` et les règles de reprise dérivent les états depuis les preuves et leur provenance. Choix manuels/archives prioritaires ; ambiguïté et preuves anciennes ne deviennent pas artificiellement ACTIVE. Fingerprint inchangé et relations cohérentes = aucune dérivation/réécriture. Réparation d'affectation : les preuves suivent la source.
 
-## Pistes à comparer, pas à entériner
+Kestrel écoute **IPAddress.Loopback**, par défaut `127.0.0.1:4187`, et s'arrête avec PROJECTS. CONTROL CORE conserve 4177, sans arrêt/transfert automatique. Routes :
 
-- Hôte **.NET / ASP.NET Core** + shell WPF/WebView2 ou Avalonia : affinité Windows/C# PERISCOPE, mais coût d'une couche d'intégration à créer.
-- **Tauri/Rust**, **Wails/Go** : options possibles, surtout si avantage mesuré.
-- **Macro Deck 3**, **ioBroker**, **Node-RED** : évaluer les contrats de modules, la faisabilité d'un shell SHINO et le poids de l'architecture.
-- Réutilisation de bibliothèques/outils existants possible seulement après vérification de leurs licences et dépendances.
+- `GET /api/health`
+- `POST /api/ingest/chatgpt-delta`
+- `POST /api/chatgpt/catchup-plan`
+- `POST /api/chatgpt/catchup-report`
 
-### Critères de décision
+Gardes adresse distante/Host/Origin/Fetch, origine d'extension précise, JSON limité à 1 Mio, lecture 10 s ; Bearer optionnel comparé à temps constant. Réception privée désactivée par défaut. ID d'extension via options PROJECTS ou `AXIS_CONTROL_EXTENSION_ID`, token éventuel dans `SHINO_CONTROL_TOKEN`. `--projects-port <port>` isole les essais sans exposer le LAN.
 
-Parité des données, intégration réelle de CONTROL et PERISCOPE sans réécriture, sécurité du LAN, facilité d'ajout de modules, robustesse au redémarrage, facilité d'installation, ressources sur le PC cible, reproductibilité, licence et maintenance future.
+L'extension Chrome installée est **externe au dépôt AXIS**. Sa collecte structurée utilise la branche active de l'API ChatGPT authentifiée, puis envoie un delta borné. Son code n'est ni distribué ni modifié ici. [Recette réelle et limites](CHROME-COLLECTION-VALIDATION.md). Les endpoints catchup existants conservent plans bornés/cooldowns/reports ; aucun rattrapage historique global n'est un objectif actif.
 
-## Non-objectifs de Foundation
+`ProjectGithub` lit l'API GitHub : ETags/curseurs, commits récents, PR/workflows et signaux de fichiers. Déduplication, réponse rejetée après réaffectation. Requêtes bornées à 20 s/4 Mio ; listes bornées, sans pagination exhaustive. Accès public ou `GITHUB_TOKEN`/`GH_TOKEN` dans l'environnement. Demande manuelle ou automatique opt-in toutes les cinq minutes. Aucun commit/push/merge.
 
-- Réécriture de CONTROL, PERISCOPE, LINK ou des clients existants.
-- Flash ou mise à jour OTA, modification du HUB ou de la VM.
-- Plugin marketplace, sandbox universelle, scripting libre non sécurisé.
-- Assistant IA permanent ou nouvelle infrastructure cloud.
-- Réorganisation de tous les dépôts SHINO.
+## Persistance, distribution et intégrations
 
-## Risques ouverts
+Profil `%LOCALAPPDATA%\SHINO\AXIS`, remplaçable par `--data-dir <dossier>` : `settings.json`, `quota-history.json`, `projects.json` avec preuves/curseurs/baseline et sauvegarde. Missions en mémoire. Profil privé hors Git ; fixtures synthétiques dans les tests. Une seule instance à la fois : aucune garde d'instance unique certifiée.
 
-- L'état local Windows peut être différent des branches GitHub.
-- Le protocole embarqué SmallTV et le chemin météo doivent être mesurés, pas devinés.
-- Les plugins natifs dans un processus commun ne sont pas une frontière de sécurité.
-- Les choix de licences doivent précéder toute copie de code tiers.
-- Une interface unique ne doit pas masquer l'état réel de ses services.
+SDK 10.0.403 épinglé, Core `net10.0`, App `net10.0-windows10.0.19041.0`. Package Windows x64 autonome, dossier complet sans trimming/single-file. [Build et packaging](DEVELOPMENT.md).
 
-Chaque changement d'architecture doit être noté avec alternatives, preuves et mécanisme de retour arrière.
+V0.7 a importé les données CONTROL réelles ; la recette Chrome ultérieure est rapportée séparément. V0.8 : 71 tests, rendu/animations WPF et package autonome dans le rapport historique ; cadences **synthétiques**, sans nouvelle qualification du compte Codex réel ni veille physique. Aucun résultat ne certifie une parité exhaustive.
+
+LINK, PERISCOPE et CONTROL restent partiellement portés. RELAY/HUB, Android TV, SmallTV et BRAIN sont futurs : aucun transport produit vers les appareils ici, aucun double producteur LINK/RELAY. Contrats HUB v2, TTL, identités et états inconnus restent des contraintes. Chaque bascule service/appareil exige preuves, retour arrière et autorisation propre. Fermer V0.8 puis relancer un package V0.7 préservé est le retour applicatif documenté, sans prétendre réparer un appareil.

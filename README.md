@@ -1,84 +1,60 @@
-# SHINO // AXIS
+# SHINO // AXIS V0.8 — CODEX Live
 
-**One core. Many possibilities.**
+**One core. Many possibilities.** AXIS est une application Windows native fonctionnelle en .NET 10 / WPF : cinq modules dans un même processus, cockpit, pages détaillées, activation individuelle, préférences et tray Windows.
 
-> **Statut :** Foundation / Discovery. Aucune technologie ni architecture d'exécution n'est encore validée.
+V0.8 est livrée localement. Ce dépôt fournit les sources pour la reconstruire ; les packages binaires et profils privés sont exclus. La parité complète avec LINK, PERISCOPE et CONTROL n'est pas acquise.
 
-SHINO // AXIS est un projet de **plateforme modulaire Windows-first** qui réunira progressivement les logiciels, les données et les appareils de l'écosystème SHINO dans une seule expérience cohérente.
+## Modules disponibles
 
-**AXIS n'est pas une réécriture générale.** Il doit fédérer les programmes qui fonctionnent déjà, standardiser les échanges et permettre d'ajouter de nouvelles capacités sans reconstruire un logiciel entier à chaque idée.
+| Domaine | Fonctionnalités et limites |
+| --- | --- |
+| SYSTEM / PC | CPU Windows, RAM physique utilisée/totale, GPU NVIDIA 0 et température via `nvidia-smi` si disponible. GPU AMD/Intel et température CPU non fournis. |
+| NETWORK | Interface active, IPv4, état, débits des compteurs locaux et volumes observés en session. Pas de test de débit Internet. |
+| MEDIA | Session Windows SMTC : titre, artiste, album, pochette, état lecture/pause et progression si exposés. Lecture seule. |
+| CODEX | Quotas 5 heures/hebdomadaires lorsque fournis, catégories, jauges OBSIDIAN CIRCLE, dates de reset et historique. Quotas toutes les **30 s** par défaut, réglables à 30/60/120/300 s ; missions JSONL locales toutes les **5 s** nominalement, états, durées et animations WPF. |
+| PROJECTS | Import CONTROL prévisualisé/fusionné, projets/sources/preuves, contrôles et affectations manuels, statuts/reprises, collecte structurée ChatGPT par l'extension Chrome existante, déduplication et lecture incrémentale GitHub. |
 
-## Objectifs
+Les valeurs absentes/périmées restent indisponibles ou à vérifier. Une fin de tour Codex ne termine pas une conversation ou un projet. Notifications de fin optionnelles, désactivées par défaut.
 
-- **Un produit Windows unique** : interface, tray, installation, configuration, superviseur et diagnostics communs.
-- **Des modules extensibles** : fonctions internes et services externes, sans monolithe obligatoire.
-- **Des contrats réutilisables** : source, état, événement, commande, capacité, droits et versions.
-- **Des appareils connectés** : Android TV, SmallTV 240×240 et futurs clients.
-- **Sans VM obligatoire** pour héberger le runtime et la passerelle sous Windows.
-- **Préserver les acquis** : intégration par adaptateurs avant toute migration ciblée.
-- **Local-first** : données authentiques, provenance, résilience, permissions minimales.
+## Compiler, tester et lancer
 
-## Écosystème existant
+Prérequis : Windows x64, Windows 10 version 2004 (build 19041) ou ultérieure, Git et **SDK .NET 10.0.403** épinglé dans [global.json](global.json). Accès aux flux de restauration .NET/NuGet nécessaire sur une machine neuve. Aucun Node.js, Python ou Macro Deck requis pour l'application.
 
-| Projet | Responsabilité | Direction envisagée |
-| --- | --- | --- |
-| [SHINO // CONTROL](https://github.com/shinobione/shinobione-shino-control) | Projets, GitHub, ChatGPT, reprise des travaux | Conserver la logique métier existante |
-| SHINO // LINK | Télémétrie PC et musique | Producteur de données / adaptateur |
-| [PERISCOPE / CODEX MONITOR](https://github.com/shinobione/SHINO-CODEX-MONITOR) | Quotas et activité Codex vérifiée | Réutiliser le collecteur fiable |
-| SHINO // RELAY et HUB | Publication, validation, distribution | Maintenir les contrats et migrer progressivement |
-| [SHINO Television Android](https://github.com/shinobione/SHINO-Television-Android) | Dashboard Freebox Pop | Conserver comme client natif Android |
-| [SHINO // TV](https://github.com/shinobione/SHINO-TV) | Firmware SmallTV | Conserver comme client embarqué |
-| SHINO // BRAIN | Notes et index mémoire local | Service optionnel |
-| [SHINO-OS](https://github.com/shinobione/shino-os) | Assistant IA local | Fournisseur de capacités optionnel |
+Depuis la racine, dans PowerShell :
 
-Cette liste décrit **des intégrations potentielles**, pas des migrations approuvées. Les sources GitHub, les worktrees locaux et les appareils physiques peuvent présenter des états différents.
-
-## Architecture conceptuelle
-
-```text
-SHINO // AXIS — Windows
- ├── Interface unifiée + tray
- ├── Runtime / gestion des modules
- ├── Contrats Sources / States / Events / Commands / Capabilities
- ├── Adaptateurs vers les projets SHINO existants
- ├── Passerelle réseau sécurisée et versionnée
- └── Stockage, configuration, diagnostics
-               │
-               ├── Android TV
-               ├── SmallTV
-               └── Futurs appareils
+```powershell
+dotnet --version
+dotnet build src/Axis.App -c Debug
+dotnet run --project tests/Axis.Core.Tests -c Release
+dotnet publish src/Axis.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:PublishTrimmed=false -o artifacts/Axis-V0.8-win-x64
+.\Launch-AXIS.cmd
 ```
 
-**La pile technique reste ouverte** : .NET, Rust, Go, Tauri, frameworks natifs ou plateformes open source. On choisira après un laboratoire comparatif fondé sur les intégrations réelles, la sécurité, la maintenance, la licence et les ressources consommées.
+Les tests sont un **exécutable de vérification** : utiliser `dotnet run`, pas `dotnet test`. La suite normale utilise des fixtures synthétiques et sockets loopback. Le lanceur ouvre `artifacts/Axis-V0.8-win-x64/Axis.App.exe` : **produire ce dossier après un clone**. Garder tous les fichiers voisins ; aucun runtime .NET séparé requis par le package autonome. Ne lancer qu'une instance à la fois.
 
-## Règles de départ
+Exécution de développement : `dotnet run --project src/Axis.App`. [Guide de développement et packaging](docs/DEVELOPMENT.md).
 
-1. Pas de changement en production, flash, OTA, suppression de VM, modification réseau ni déploiement sans autorisation spécifique.
-2. Pas de collecteurs concurrents sur une même donnée ; une source autoritaire par domaine.
-3. Préserver les contrats existants du HUB et d'Android TV, notamment authentification et fraîcheur des données.
-4. Ne pas exposer directement au réseau le service loopback de CONTROL.
-5. Aucune donnée LIVE fictive : les informations absentes, périmées ou non vérifiées restent identifiées.
-6. Les fonctions ordinaires ne dépendent pas d'un modèle IA, d'une VM ou d'un abonnement cloud.
-7. Pas de système de plugins disproportionné avant démonstration d'une vraie extension.
-8. Aucune obligation de fusionner tous les logiciels SHINO.
+## Données et dépendances
 
-## Roadmap
+Profil par défaut : `%LOCALAPPDATA%\SHINO\AXIS`, avec `settings.json`, `quota-history.json` (1000 points maximum), `projects.json` et sa sauvegarde. `--data-dir <dossier>` isole un profil. Les fichiers invalides sont conservés et protégés contre l'écrasement. Les données projets/preuves peuvent être privées : les garder hors Git.
 
-1. **P0 — Audit** : relever le code et les versions réellement utilisés, les processus, les dépendances, les protocoles et les rôles.
-2. **P1 — Laboratoire comparatif** : tester une base Windows minimale contre une plateforme open source existante, avec les mêmes scénarios.
-3. **P2 — Foundation** : interface unique, contrats minimaux et adaptateurs en lecture seule.
-4. **P3 — Communication** : compatibilité Android TV / SmallTV et passerelle native Windows.
-5. **P4 — Migration** : remplacer les dépendances redondantes, un domaine à la fois, avec retour arrière.
-6. **P5 — Extension** : démontrer l'ajout d'un nouveau module sans modification profonde du noyau.
+CODEX nécessite le CLI Codex installé et connecté, détecté par PATH, emplacements prévus ou `SHINO_CODEX_EXE`. Processus `app-server` temporaire pour `account/rateLimits/read`, timeout 20 s, une requête au plus et backoff. Aucun accès direct aux fichiers d'authentification. Missions : métadonnées JSONL locales non documentées et sensibles aux versions ; aucun prompt ou contenu de conversation persisté par ce lecteur.
 
-**Premier jalon :** prendre une décision d'architecture documentée sur la base d'un audit en lecture seule et de tests reproductibles, sans casser les installations en place.
+PROJECTS écoute seulement `127.0.0.1:4187`, dans AXIS. Réception privée et GitHub automatique nécessitent un opt-in ; origine d'extension à configurer. CONTROL CORE conserve 4177, jamais repris automatiquement. L'extension Chrome est **externe et non distribuée ici**. La synchronisation GitHub lit des commits, PR, workflows et signaux documentaires bornés ; elle ne pousse ni ne fusionne du code. Accès privé éventuel via `GITHUB_TOKEN` ou `GH_TOKEN` dans l'environnement, jamais Git. [Architecture et configuration](docs/ARCHITECTURE.md).
 
-## Documents
+## Validations et limites
 
-- [Architecture proposée](docs/ARCHITECTURE.md)
-- [Roadmap détaillée](docs/ROADMAP.md)
-- [Instructions de travail pour Codex et agents](AGENTS.md)
+- V0.7 : import réel de **28 projets CONTROL, 328 sources, 541 preuves**, avec préservation du projet AXIS existant ; zéro conflit et aucune relation orpheline rapportés.
+- Recette Chrome ultérieure : conversation de **527 messages**, attribution correcte et aucune modification persistante après rechargement inchangé. Résultat borné, sans certification de toutes les API internes ChatGPT. [Qualification](docs/CHROME-COLLECTION-VALIDATION.md).
+- V0.8 : **71 tests réussis**, build autonome et animations WPF vérifiés dans le rapport de livraison. Cadences 30 s / 5 s mesurées avec des **sources synthétiques** ; requalification sur compte Codex réel et reprise après veille physique encore à effectuer. [Preuves et limites V0.8](docs/V0.8-DELIVERY.md).
 
-## Licence
+LINK, PERISCOPE et CONTROL sont partiellement portés ; aucun retrait automatique de leurs processus. RELAY/HUB, Android TV et SmallTV restent des intégrations futures, avec contrats et autorisations distinctes. Aucun rattrapage historique ChatGPT demandé : rouvrir les conversations nécessaires.
 
-**À décider.** Le dépôt est public mais aucune licence de réutilisation n'a encore été accordée. La licence sera choisie après vérification des composants open source éventuellement repris.
+## Documentation
+
+- [Architecture actuelle](docs/ARCHITECTURE.md) · [Développement](docs/DEVELOPMENT.md)
+- [Historique V0.1 → V0.8](CHANGELOG.md) · [Roadmap](docs/ROADMAP.md)
+- [Livraison V0.7](docs/V0.7-DELIVERY.md) · [Bascule/retour](docs/V0.7-SWITCHOVER.md) · [Livraison V0.8](docs/V0.8-DELIVERY.md)
+- [Archives P0](docs/audit/P0-RECOMMENDATION.md) · [Archives P1](docs/p1/P1-COMPARISON.md) : résultats historiques, pas des prérequis futurs au lancement.
+
+Licence générale à décider ; cette synchronisation n'accorde aucune nouvelle licence de redistribution. SDK/runtimes Microsoft et dépendances du laboratoire gardent leurs conditions propres. Aucun code tiers téléchargé, runtime, cache ou binaire inclus.

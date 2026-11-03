@@ -1,0 +1,19 @@
+{
+  "sampleKind": "TEST",
+  "candidate": "b",
+  "boundary": "COMMON_ADAPTER_AND_MACRO_DECK_SDK_TEST_HOST",
+  "testsRun": 14,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "functionalDurationSeconds": 10.829,
+  "benchmark": false,
+  "corpusSha256": "70e3c08f3e6ef93518288e7b1b3af93b7c5ea8fc2d7718c155cb51bad27c9c5d",
+  "corpusSourceSha256": "673fc9f731ee88e6851293dcaeff615fe0d9121898918301a42933dcaf75d255",
+  "testSourceSha256": "cfb3d4dcdf9506dab237846173d861e73e4e758b50250c624dce43e37ad55ba8",
+  "schemas": {
+    "relay": "8bed0e07943cd23232a7265dcbc6b7ade0bbf708f198c57b75e3f465f38bdd6b",
+    "android": "03fe036cd9d47ba9e28d296bc19a06f26a9b72beed884c33ebec6f24d5deec83"
+  },
+  "failedTests": []
+}

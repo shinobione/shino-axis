@@ -1,0 +1,200 @@
+{
+  "sampleKind": "TEST",
+  "macroDeckCommit": "614dc0bbb04be21434176208fadff45179a6d5ec",
+  "runtimePackageCounts": {
+    "a": 4,
+    "b": 5
+  },
+  "packages": [
+    {
+      "id": "Humanizer.Core",
+      "version": "3.0.10",
+      "licenseType": "expression",
+      "license": "MIT",
+      "runtimeCandidates": [
+        "a",
+        "b"
+      ],
+      "nuspecSha256": "07d999aaff5f7cbdfa7c7d23662dd3641e70f9ca8b33a5ff246d2917395548bf"
+    },
+    {
+      "id": "Json.More.Net",
+      "version": "3.0.1",
+      "licenseType": "file",
+      "license": "OSMFEULA.txt",
+      "runtimeCandidates": [
+        "a",
+        "b"
+      ],
+      "nuspecSha256": "1622819b0864bc1d80fbc100dcb4fbd1161d0b6ac6de7c34474e87aa93aa8322",
+      "licenseFileSha256": "5c805ac94dfdb4a3be55547f04a2f4b9f1bb87d7e9ee6d6fe54b0e72093900c3"
+    },
+    {
+      "id": "JsonPointer.Net",
+      "version": "7.0.2",
+      "licenseType": "file",
+      "license": "OSMFEULA.txt",
+      "runtimeCandidates": [
+        "a",
+        "b"
+      ],
+      "nuspecSha256": "ef462d81d706387d86f880795c7664363c99a9cb326eaee6f1c5c5cbc7efcde5",
+      "licenseFileSha256": "5c805ac94dfdb4a3be55547f04a2f4b9f1bb87d7e9ee6d6fe54b0e72093900c3"
+    },
+    {
+      "id": "JsonSchema.Net",
+      "version": "9.4.0",
+      "licenseType": "file",
+      "license": "OSMFEULA.txt",
+      "runtimeCandidates": [
+        "a",
+        "b"
+      ],
+      "nuspecSha256": "96db25fe7dc36ab8a39cff76f20c859053e2dcc13f20aee20842d8860ee7721e",
+      "licenseFileSha256": "5c805ac94dfdb4a3be55547f04a2f4b9f1bb87d7e9ee6d6fe54b0e72093900c3"
+    },
+    {
+      "id": "Microsoft.CodeAnalysis.Analyzers",
+      "version": "5.9.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "runtimeCandidates": [],
+      "nuspecSha256": "ea5c83fac996d4fd6e29e571ad7ebc524b5300d6e308555fbe43a1cc9565e925"
+    },
+    {
+      "id": "Microsoft.CodeAnalysis.Common",
+      "version": "4.14.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "runtimeCandidates": [],
+      "nuspecSha256": "a9078fb18688996a941596452a3c214ddf6ac6a437e9fac05fb6df9aee0fdddc"
+    },
+    {
+      "id": "Microsoft.CodeAnalysis.CSharp",
+      "version": "4.14.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "runtimeCandidates": [],
+      "nuspecSha256": "bff26146813a2ba8450713193b662a4ae84ab69af44f348fc7359fb47f559d32"
+    },
+    {
+      "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+      "version": "10.0.13",
+      "licenseType": "expression",
+      "license": "MIT",
+      "runtimeCandidates": [],
+      "nuspecSha256": "ec1c51eb90a4226aa13870d456ccd34b6e80658ec314547ceb79e47ad3249069"
+    },
+    {
+      "id": "Microsoft.NETCore.Platforms",
+      "version": "1.1.0",
+      "licenseType": "UNKNOWN",
+      "license": "UNKNOWN",
+      "runtimeCandidates": [],
+      "nuspecSha256": "20fa15a4509e2dff05d0bf2fc1f9ec4f59dd948f2c327e7f92d7c12ce3414b88"
+    },
+    {
+      "id": "NETStandard.Library",
+      "version": "2.0.3",
+      "licenseType": "UNKNOWN",
+      "license": "UNKNOWN",
+      "runtimeCandidates": [],
+      "nuspecSha256": "be3eb47978bc0dcff6109c6706bfee6315792dcb83dc6c59998f9ccc4e1ab270"
+    },
+    {
+      "id": "Serilog",
+      "version": "4.4.0",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "runtimeCandidates": [
+        "b"
+      ],
+      "nuspecSha256": "a250302757f846344142d31bfde0174e4c4617581a54b338701de155220ffb4d"
+    },
+    {
+      "id": "System.Buffers",
+      "version": "4.5.1",
+      "licenseType": "UNKNOWN",
+      "license": "UNKNOWN",
+      "runtimeCandidates": [],
+      "nuspecSha256": "353a5c2810bfb22de50b87616f426d4d2c8aac2040802c68e2caadedbfe66b8e"
+    },
+    {
+      "id": "System.Collections.Immutable",
+      "version": "9.0.20",
+      "licenseType": "expression",
+      "license": "MIT",
+      "runtimeCandidates": [],
+      "nuspecSha256": "d0199c35f3047828800fdd085e373979230ab4fa2c61b92682d27fcdc0212ef4"
+    },
+    {
+      "id": "System.Memory",
+      "version": "4.5.5",
+      "licenseType": "UNKNOWN",
+      "license": "UNKNOWN",
+      "runtimeCandidates": [],
+      "nuspecSha256": "745bfa574a0fe397559dad595fd0b73a38d7dde40703bb8f0f1eba82edf99aa7"
+    },
+    {
+      "id": "System.Numerics.Vectors",
+      "version": "4.5.0",
+      "licenseType": "UNKNOWN",
+      "license": "UNKNOWN",
+      "runtimeCandidates": [],
+      "nuspecSha256": "e88aa01f9c9f763f66d643fc093eb3fa885141847f61fac13c2a9ad7a60a29e9"
+    },
+    {
+      "id": "System.Reflection.Metadata",
+      "version": "9.0.20",
+      "licenseType": "expression",
+      "license": "MIT",
+      "runtimeCandidates": [],
+      "nuspecSha256": "720e038f4af2e1ca9bf7f8bcb5d2c9b6a4f4b4ab37db2104efce9a3d661f710a"
+    },
+    {
+      "id": "System.Runtime.CompilerServices.Unsafe",
+      "version": "6.0.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "runtimeCandidates": [],
+      "nuspecSha256": "edaccfd50eebadf418188db5a19cb7b24c887fbbc638f2e4d402ff94bbcc14dc"
+    },
+    {
+      "id": "System.Text.Encoding.CodePages",
+      "version": "7.0.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "runtimeCandidates": [],
+      "nuspecSha256": "3bbb23aa1c7a2b79bbe6b8b0c8ce24706e37df486ef78264af88d0a1debefa7c"
+    },
+    {
+      "id": "System.Threading.Tasks.Extensions",
+      "version": "4.5.4",
+      "licenseType": "UNKNOWN",
+      "license": "UNKNOWN",
+      "runtimeCandidates": [],
+      "nuspecSha256": "942bd07aa8206c8a2b4923dfe013fd617b28d89130eebabc802d86491bf2fc6f"
+    }
+  ],
+  "unbuiltUiLocks": [
+    {
+      "path": "ui/package-lock.json",
+      "sha256": "22ed31007d7873b6f749ed409560b4a9d5053bca24af281c4223935d255ddafb",
+      "lockEntries": 756,
+      "installedInLab": false
+    },
+    {
+      "path": "ui/bootstrapper/package-lock.json",
+      "sha256": "7d5d37f72689e2d6657bf5e4d17556a5a3a069d504d691bd5b03320b09d8134c",
+      "lockEntries": 13,
+      "installedInLab": false
+    },
+    {
+      "path": "ui/bootstrapper/Cargo.lock",
+      "sha256": "0615272c57d857ba2d3a55af683ba1a17a2c1766111a8780ebc8670a89cfeb5e",
+      "lockEntries": 542,
+      "installedInLab": false
+    }
+  ],
+  "redistributionApproved": false
+}

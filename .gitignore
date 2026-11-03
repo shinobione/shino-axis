@@ -1,0 +1,54 @@
+# P1: downloaded dependencies, third-party sources and local execution outputs
+lab/p1/.cache/
+lab/p1/.runtime/
+lab/p1/**/bin/
+lab/p1/**/obj/
+lab/p1/**/__pycache__/
+lab/p1/**/node_modules/
+lab/p1/**/target/
+
+# AXIS Windows application build and local verification outputs
+src/**/bin/
+src/**/obj/
+tests/**/bin/
+tests/**/obj/
+artifacts/
+.runtime/
+
+# Build outputs and developer caches, regardless of project location
+**/bin/
+**/obj/
+**/__pycache__/
+**/node_modules/
+.vs/
+.idea/
+*.user
+*.suo
+*.log
+*.tmp
+*.bak
+
+# Private configuration, profiles, databases and Codex session logs
+.env
+.env.*
+!.env.example
+**/settings.json
+**/quota-history.json
+**/projects.json
+**/state.local.json
+**/auth.json
+**/*.jsonl
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+profiles/
+private/
+
+# Generated distributions and binaries (sources only)
+*.zip
+*.exe
+*.dll
+*.pdb
+*.msi
+*.msix
+*.dmp
